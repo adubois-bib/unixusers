@@ -7,12 +7,12 @@
 ## code is always made freely available.
 ## Please refer to the General Public Licence http://www.gnu.org/ or Licence.txt
 ################################################################################
-package Ocsinventory::Agent::Modules::Unixusers;
+package Ocsinventory::Agent::Modules::Unixusersv2;
 
 sub new {
 
-    my $name="unixusers"; # Name of the module
-
+    my $name="unixusersv2"; # Name of the module
+    my $unixSystem=`uname -s`
     my (undef,$context) = @_;
     my $self = {};
 
@@ -27,7 +27,7 @@ sub new {
         start_handler => undef,    #or undef if don't use this hook
         prolog_writer => undef,    #or undef if don't use this hook
         prolog_reader => undef,    #or undef if don't use this hook
-        inventory_handler => $name."_inventory_handler",    #or undef if don't use this hook
+        inventory_handler => $unixSystem."_inventory_handler",    #or undef if don't use this hook
         end_handler => undef       #or undef if don't use this hook
     };
     bless $self;
@@ -35,13 +35,11 @@ sub new {
 
 ######### Hook methods ############
 
-sub unixusers_inventory_handler {
+sub Linux_inventory_handler {
 
     my $self = shift;
     my $logger = $self->{logger};
     my $common = $self->{context}->{common};
-
-    $logger->debug("Yeah you are in unixusers_inventory_handler:)");
 
     # test if who command is available and /etc/passwd, /etc/group are readable :)
     sub check {
@@ -52,34 +50,37 @@ sub unixusers_inventory_handler {
         $common->can_run("who"); 
         $common->can_read("/etc/passwd");
         $common->can_read("/etc/group");
+        $common->can_read("/etc/shadow");
 
     }
 
-    my %users;
-    foreach my $user (_getLocalUsers()) {
-    #push @{$users{$user->{gid}}}, $user->{LOGIN};
-	#delete $user->{gid};
-
-        push @{$common->{xmltags}->{LOCAL_USERS}},
+    foreach my $user (_getLocalUsers()) 
+    {
+        foreach my $passwordinfo (_getLocalPasswords()) 
         {
-            LOGIN_USERS => [$user->{LOGIN}],
-            ID_USERS    => [$user->{ID}],
-            GID_USERS   => [$user->{gid}],
-            NAME_USERS  => [$user->{NAME}],
-            HOME_USERS  => [$user->{HOME}],
-            SHELL_USERS => [$user->{SHELL}]
-        };
-    }
+            if($passwordinfo->{LOGIN} == $user->{LOGIN})
+            {
+                my login = $user->{LOGIN}
+                my $LASTSEEN = system("last -1 $login --time-format full | awk '{print \$5, \$4, \$7, \$6}' | sed 1q")
+                my $hasSUDO = system("sudo -lU $login  | grep 'is not allowed to run sudo'") == 0 
+                if( $hasSUDO == 0 ) {
+                    my $SUDOER = "FALSE"
+                    } else {
+                    my $SUDOER = "TRUE"
+                    }
 
-    foreach my $group (_getLocalGroups()) {
-        push @{$group->{MEMBER}}, @{$users{$group->{ID}}} if $users{$group->{ID}};
-
-        push @{$common->{xmltags}->{LOCAL_GROUPS}},
-        {
-            ID_GROUP     => [$group->{ID}],
-            NAME_GROUP   => [$group->{NAME}],
-            MEMBER_GROUP => [$group->{MEMBER}]
-        };
+                push @{$common->{xmltags}->{LOCAL_USERS}},
+                {
+                    USERLOGIN            => [$user->{LOGIN}],
+                    USERID               => [$user->{ID}],
+                    PASSWORD_PROTECTED   => [$passwordinfo->{PROTECTED}],
+                    PASSWORD_LASTCHANGE  => [$passwordinfo->{LASTCHANGE}],
+                    PASSWORD_POLICY      => ["NotImplementedYet"],
+                    LASTSEEN             => [$LASTSEEN],
+                    HAS_SUDO_RIGHTS      => [$SUDOER]
+                };
+            }
+        }
     }
 
 }
@@ -113,28 +114,27 @@ sub _getLocalUsers{
 
 }
 
-sub _getLocalGroups {
 
-     open(my $fh, '<:encoding(UTF-8)', "/etc/group") or warn;
-     my @groupinfo=<$fh>;
+sub _getLocalPasswords{
+
+     open(my $fh, '<:encoding(UTF-8)', "/etc/shadow") or warn;
+     my @passwordinfo=<$fh>;
      close($fh);
 
-     foreach my $line (@groupinfo){
+     foreach my $line (@passwordinfo){
          next if $line =~ /^#/;
+         next if $line =~ /^[+-]/; # old format for external inclusion
          chomp $line;
-         my ($name, undef, $gid, $members) = split(/:/, $line);
+         my ($login, $passwordprotected, $lastchanged, $minperiodchange, $maxperiodchange, $warnuserforchange, $deactivationdate, $expirationdate) = split(/:/, $line);
 
-         # prevent warning for malformed group file (#2384)
-         next unless $members;
-         my @members = split(/,/, $members);
-
-         push @groups, {
-             ID     => $gid,
-             NAME   => $name,
-             MEMBER => @members,
+         push @passwords,
+         {
+             LOGIN      => $login,
+             PROTECTED  => $passwordprotected,
+             LASTCHANGE => $lastchanged
          };
      }
 
-     return @groups;
+     return @passwords;
 
 }

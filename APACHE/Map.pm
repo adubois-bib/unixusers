@@ -8,32 +8,29 @@
 ## Please refer to the General Public Licence http://www.gnu.org/ or Licence.txt
 ################################################################################
  
-package Apache::Ocsinventory::Plugins::Unixusers::Map;
+package Apache::Ocsinventory::Plugins::Unixusersv2::Map;
  
 use strict;
  
 use Apache::Ocsinventory::Map;
 
 #Plugin Unix/Linux USERS
-$DATA_MAP{unixusers} = {
+$DATA_MAP{unixusersv2} = {
     mask => 0,
     multi => 1,
     auto => 1,
     delOnReplace => 1,
-    sortBy => 'NAME_USERS',
+    sortBy => 'USERLOGIN',
     writeDiff => 0,
     cache => 0,
     fields => {
-         ID_USERS => {},
-         GID_USERS => {},
-         HOME_USERS => {},
-         LOGIN_USERS => {},
-         NAME_USERS => {},
-         GROUP_USERS => {},
-         SHELL_USERS => {},
-         ID_GROUP => {},
-         MEMBER_GROUP => {},
-         NAME_GROUP => {}
+         USERID => {},
+         USERLOGIN => {},
+         PASSWORD_PROTECTED => {},
+         PASSWORD_LASTCHANGE => {},
+         PASSWORD_POLICY => {},
+         LASTSEEN => {},
+         HAS_SUDO_RIGHTS => {}
     }
  
 };

@@ -5,9 +5,9 @@
         <value>fr_FR</value>
     </hook>
     <hook type="cdentry">
-        <identifier>cd_unixusers</identifier>
+        <identifier>cd_unixusersv2</identifier>
         <translation>152001</translation>
         <category>other</category>
-        <available>unixusers</available>
+        <available>unixusersv2</available>
     </hook>
 </hookstore>
